@@ -1,0 +1,36 @@
+﻿name: Deploy ALIS Pipeline to Azure VM
+
+on:
+  push:
+    branches:
+      - main  # Triggers the pipeline every time you push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the application code
+        uses: actions/checkout@v4
+
+      - name: Execute remote SSH commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            # 1. Navigate to your specific project directory on the VM
+            cd /home/azureuser/alis-backend-v2
+            
+            # 2. Discard any tracking mismatches and pull the fresh code from GitHub
+            git fetch --all
+            git reset --hard origin/main
+            
+            # 3. Stop old containers, rebuild images, and launch the pipeline in background mode
+            docker compose down
+            docker compose up --build -d
+            
+            # 4. Clean up old, unused Docker image layers to save server disk space
+            docker image prune -f
